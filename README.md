@@ -78,6 +78,8 @@ cnm-t2i infer --model sd15 --prompt "a cat" --gpu 1
 cnm-t2i infer --model sd15 --prompt "a cat" --cuda-visible-devices 1
 ```
 
+如果你遇到 `Tensor.item() cannot be called on meta tensors`（常见于 Janus/Janus-Pro + 新版 Transformers 的 meta 初始化路径），请更新到最新代码后重试；我们已在 runner 里强制禁用了 meta 初始化。
+
 ## Notes
 
 - Some models may be gated on Hugging Face (you must accept terms and provide a token).
