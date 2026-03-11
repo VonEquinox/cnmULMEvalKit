@@ -226,16 +226,15 @@ def run_janus_autoregressive(*, model_path: str, prompt: str, out: str, family: 
     vl_chat_processor = VLChatProcessor.from_pretrained(model_path)
     tokenizer = vl_chat_processor.tokenizer
 
-    # Newer Transformers may default to a low-CPU-memory load path that instantiates
-    # modules on the "meta" device. Janus's SigLIP ViT init calls Tensor.item(),
-    # which fails on meta tensors. Force a normal load here.
+    # Align with the upstream Janus demo: do NOT pass torch_dtype into from_pretrained.
+    # Some Transformers versions can instantiate under a "meta" init context for certain
+    # loading paths, which breaks Janus's SigLIP ViT init (it calls Tensor.item()).
     vl_gpt = AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code=True,
-        torch_dtype=torch_dtype,
         low_cpu_mem_usage=False,
     )
-    vl_gpt = vl_gpt.cuda().eval()
+    vl_gpt = vl_gpt.to(torch_dtype).cuda().eval()
 
     conversation = [
         {"role": user_role, "content": prompt},

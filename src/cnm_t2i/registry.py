@@ -49,7 +49,9 @@ RUNTIMES: Dict[str, RuntimeSpec] = {
             "torch",
             "torchvision",
             "diffusers>=0.37.0",
-            "transformers>=4.38.2",
+            # Janus SigLIP ViT calls Tensor.item() during __init__, which fails under meta-init.
+            # Transformers >= 4.53 instantiates models under init_empty_weights() by default.
+            "transformers>=4.38.2,<4.53",
             "accelerate",
             "sentencepiece",
             "protobuf",
