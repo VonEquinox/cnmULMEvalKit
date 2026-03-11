@@ -32,6 +32,13 @@ Interactive setup:
 cnm-t2i setup
 ```
 
+Hugging Face 国内镜像（可选）：
+
+```bash
+cnm-t2i install --model sd15 --hf-endpoint https://hf-mirror.com
+# 或者：export HF_ENDPOINT=https://hf-mirror.com
+```
+
 Non-interactive install:
 
 ```bash
@@ -54,4 +61,3 @@ cnm-t2i infer --model sd15 --prompt "a cat" --steps 5
 
 - Some models may be gated on Hugging Face (you must accept terms and provide a token).
 - This repo intentionally keeps the CLI lightweight; heavy deps (torch/diffusers/etc) are installed into `cnm-t2i-work/envs/`.
-

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -71,6 +72,22 @@ def setup(
     else:
         model_key = choice.split()[0]
 
+    use_mirror = bool(
+        questionary.confirm(
+            "是否使用 Hugging Face 国内镜像 (hf-mirror.com)？", default=False
+        ).ask()
+    )
+    hf_endpoint = "https://hf-mirror.com" if use_mirror else None
+    if use_mirror:
+        # Allow users to override the mirror URL.
+        hf_endpoint = (
+            questionary.text(
+                "HF Endpoint (可改为你的镜像地址)",
+                default=os.environ.get("HF_ENDPOINT", "https://hf-mirror.com"),
+            ).ask()
+            or "https://hf-mirror.com"
+        )
+
     torch_backend = questionary.text("uv torch backend", default="cu121").ask() or "cu121"
     pyver = questionary.text("Python version for venv", default="3.11").ask() or "3.11"
     managed_py = bool(
@@ -95,7 +112,7 @@ def setup(
         python=pyver,
         managed_python=managed_py,
         hf_token=None,
-        hf_endpoint=None,
+        hf_endpoint=hf_endpoint,
         env_only=do_env and not do_download,
         download_only=do_download and not do_env,
         force=False,

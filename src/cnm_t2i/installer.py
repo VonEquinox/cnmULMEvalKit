@@ -158,9 +158,16 @@ def install(req: InstallRequest) -> InstallResult:
 
     # Model snapshot download
     if not req.env_only:
-        if model_dir.exists() and any(model_dir.iterdir()) and not req.force:
+        marker = model_dir / ".cnm_snapshot_complete.json"
+
+        if req.force and model_dir.exists():
+            console.print("[yellow]Force enabled:[/yellow] clearing existing model directory.")
+            if not req.dry_run:
+                shutil.rmtree(model_dir)
+
+        if marker.is_file() and not req.force:
             console.print(
-                "[yellow]Model directory already exists and is non-empty; skipping download.[/yellow] "
+                "[green]Model snapshot already marked complete; skipping download.[/green] "
                 "Use --force to re-download."
             )
         else:
@@ -198,6 +205,21 @@ def install(req: InstallRequest) -> InstallResult:
                 endpoint=endpoint,
                 dry_run=req.dry_run,
             )
+            if not req.dry_run:
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                marker.write_text(
+                    json.dumps(
+                        {
+                            "repo_id": model.hf_repo,
+                            "revision": req.revision,
+                            "downloaded_at": state.utc_now_iso(),
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
     else:
         console.print("[cyan]Skipping model download[/cyan] due to --env-only")
 
