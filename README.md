@@ -70,6 +70,14 @@ Smoke inference (after install on server):
 cnm-t2i infer --model sd15 --prompt "a cat" --steps 5
 ```
 
+指定 GPU（可选）：
+
+```bash
+cnm-t2i infer --model sd15 --prompt "a cat" --gpu 1
+# 等价：
+cnm-t2i infer --model sd15 --prompt "a cat" --cuda-visible-devices 1
+```
+
 ## Notes
 
 - Some models may be gated on Hugging Face (you must accept terms and provide a token).

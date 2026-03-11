@@ -50,6 +50,7 @@ class InferRequest:
     max_seq_len: int
     dtype: str
     device: str
+    cuda_visible_devices: Optional[str]
     cfg_weight: float
     parallel_size: int
     dry_run: bool
@@ -94,6 +95,10 @@ def infer(req: InferRequest) -> Path:
         "TRANSFORMERS_CACHE": str(layout.hf_home / "transformers"),
         "TOKENIZERS_PARALLELISM": "false",
     }
+    if req.cuda_visible_devices:
+        # Restrict visible GPUs for the subprocess. This is the simplest/most robust way
+        # to select a specific GPU without changing downstream libraries.
+        env["CUDA_VISIBLE_DEVICES"] = req.cuda_visible_devices
 
     # Choose runner based on runtime/family.
     if runtime == "janus" or family.startswith("janus"):

@@ -176,11 +176,22 @@ def infer(
     max_seq_len: int = typer.Option(256, "--max-seq-len"),
     dtype: str = typer.Option("auto", "--dtype", help="auto|fp16|bf16|fp32"),
     device: str = typer.Option("auto", "--device", help="auto|cuda|cpu"),
+    gpu: Optional[int] = typer.Option(
+        None, "--gpu", help="Select GPU id by setting CUDA_VISIBLE_DEVICES (e.g. 0/1)"
+    ),
+    cuda_visible_devices: Optional[str] = typer.Option(
+        None,
+        "--cuda-visible-devices",
+        help="Set CUDA_VISIBLE_DEVICES explicitly (e.g. 0 or 0,1). Overrides --gpu.",
+    ),
     cfg_weight: float = typer.Option(5.0, "--cfg-weight", help="CFG weight for Janus/JanusFlow"),
     parallel_size: int = typer.Option(1, "--parallel-size", help="Parallel images for Janus (autoreg)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print planned actions; do not execute"),
     home: Optional[str] = typer.Option(None, "--home", help="Override workdir (default: <project_root>/cnm-t2i-work)"),
 ) -> None:
+    if gpu is not None and cuda_visible_devices:
+        raise typer.BadParameter("Use either --gpu or --cuda-visible-devices, not both.")
+    cuda_vis = cuda_visible_devices if cuda_visible_devices else (str(gpu) if gpu is not None else None)
     req = infer_mod.InferRequest(
         home=_home_option(home),
         model_key=model,
@@ -198,6 +209,7 @@ def infer(
         max_seq_len=max_seq_len,
         dtype=dtype,
         device=device,
+        cuda_visible_devices=cuda_vis,
         cfg_weight=cfg_weight,
         parallel_size=parallel_size,
         dry_run=dry_run,
