@@ -217,14 +217,13 @@ def run_janus_autoregressive(*, model_path: str, prompt: str, out: str, family: 
     if family == "janus-pro":
         user_role = "<|User|>"
         assistant_role = "<|Assistant|>"
-        sft_format = "janus-pro"
     else:
         user_role = "User"
         assistant_role = "Assistant"
-        sft_format = "chatml"
 
     vl_chat_processor = VLChatProcessor.from_pretrained(model_path)
     tokenizer = vl_chat_processor.tokenizer
+    sft_format = getattr(vl_chat_processor, "sft_format", "deepseek")
 
     # Align with the upstream Janus demo: do NOT pass torch_dtype into from_pretrained.
     # Some Transformers versions can instantiate under a "meta" init context for certain
