@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Optional
@@ -95,6 +96,15 @@ def infer(req: InferRequest) -> Path:
         "TRANSFORMERS_CACHE": str(layout.hf_home / "transformers"),
         "TOKENIZERS_PARALLELISM": "false",
     }
+    if record:
+        # Do not override user-exported env vars unless explicitly requested.
+        if getattr(record, "hf_endpoint", None) and "HF_ENDPOINT" not in os.environ:
+            env["HF_ENDPOINT"] = str(record.hf_endpoint)
+        if getattr(record, "proxy", None):
+            proxy = str(record.proxy)
+            for k in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+                if k not in os.environ:
+                    env[k] = proxy
     if req.cuda_visible_devices:
         # Restrict visible GPUs for the subprocess. This is the simplest/most robust way
         # to select a specific GPU without changing downstream libraries.

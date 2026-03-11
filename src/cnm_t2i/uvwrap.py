@@ -56,6 +56,7 @@ def create_venv(
     *,
     python: str,
     managed_python: bool = False,
+    env: Optional[Dict[str, str]] = None,
     dry_run: bool = False,
 ) -> CommandResult:
     if not dry_run:
@@ -65,7 +66,7 @@ def create_venv(
     cmd = ["uv", "venv", str(venv_dir), "--python", python]
     if managed_python:
         cmd.append("--managed-python")
-    return run_cmd(cmd, dry_run=dry_run)
+    return run_cmd(cmd, env=env, dry_run=dry_run)
 
 
 def pip_install(
@@ -73,6 +74,7 @@ def pip_install(
     requirements: Iterable[str],
     *,
     torch_backend: str,
+    env: Optional[Dict[str, str]] = None,
     dry_run: bool = False,
 ) -> CommandResult:
     if not dry_run:
@@ -87,7 +89,7 @@ def pip_install(
         torch_backend,
         *list(requirements),
     ]
-    return run_cmd(cmd, dry_run=dry_run)
+    return run_cmd(cmd, env=env, dry_run=dry_run)
 
 
 def run_python(

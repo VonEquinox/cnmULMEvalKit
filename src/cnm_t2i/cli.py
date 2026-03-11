@@ -88,6 +88,23 @@ def setup(
             or "https://hf-mirror.com"
         )
 
+    use_proxy = bool(
+        questionary.confirm(
+            "是否使用 HTTP Proxy (用于 uv pip / HF 下载)？", default=False
+        ).ask()
+    )
+    proxy = None
+    if use_proxy:
+        proxy = (
+            questionary.text(
+                "Proxy URL",
+                default=os.environ.get("HTTPS_PROXY")
+                or os.environ.get("https_proxy")
+                or "http://127.0.0.1:7897",
+            ).ask()
+            or None
+        )
+
     torch_backend = questionary.text("uv torch backend", default="cu121").ask() or "cu121"
     pyver = questionary.text("Python version for venv", default="3.11").ask() or "3.11"
     managed_py = bool(
@@ -113,6 +130,7 @@ def setup(
         managed_python=managed_py,
         hf_token=None,
         hf_endpoint=hf_endpoint,
+        proxy=proxy,
         env_only=do_env and not do_download,
         download_only=do_download and not do_env,
         force=False,
@@ -133,6 +151,11 @@ def install(
     managed_python: bool = typer.Option(False, "--managed-python/--no-managed-python", help="Use uv-managed Python downloads"),
     hf_token: Optional[str] = typer.Option(None, "--hf-token", help="HF token (or set HF_TOKEN/HUGGINGFACE_HUB_TOKEN)"),
     hf_endpoint: Optional[str] = typer.Option(None, "--hf-endpoint", help="HF endpoint (or set HF_ENDPOINT)"),
+    proxy: Optional[str] = typer.Option(
+        None,
+        "--proxy",
+        help="HTTP proxy URL (e.g. http://127.0.0.1:7897). Sets HTTP(S)_PROXY for uv+HF downloads.",
+    ),
     env_only: bool = typer.Option(False, "--env-only", help="Only create/install env; skip model download"),
     download_only: bool = typer.Option(False, "--download-only", help="Only download model; skip env install"),
     force: bool = typer.Option(False, "--force", help="Force re-download even if model dir exists"),
@@ -151,6 +174,7 @@ def install(
         managed_python=managed_python,
         hf_token=hf_token,
         hf_endpoint=hf_endpoint,
+        proxy=proxy,
         env_only=env_only,
         download_only=download_only,
         force=force,

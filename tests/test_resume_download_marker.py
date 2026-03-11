@@ -45,6 +45,7 @@ def test_download_marker_skips_subsequent_downloads(tmp_path: Path, monkeypatch)
         managed_python=False,
         hf_token=None,
         hf_endpoint=None,
+        proxy=None,
         env_only=False,
         download_only=False,
         force=False,
@@ -93,6 +94,7 @@ def test_force_redownload_clears_marker(tmp_path: Path, monkeypatch) -> None:
         managed_python=False,
         hf_token=None,
         hf_endpoint=None,
+        proxy=None,
         env_only=False,
         download_only=False,
         force=True,
@@ -102,4 +104,3 @@ def test_force_redownload_clears_marker(tmp_path: Path, monkeypatch) -> None:
     installer.install(req)
     assert calls["download"] == 1
     assert (home / "models" / "sd15" / ".cnm_snapshot_complete.json").is_file()
-

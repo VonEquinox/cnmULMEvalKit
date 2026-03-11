@@ -18,6 +18,8 @@ class ModelInstallRecord(BaseModel):
     family: Optional[str] = None
     hf_repo: str
     revision: Optional[str] = None
+    hf_endpoint: Optional[str] = None
+    proxy: Optional[str] = None
     runtime: str
     torch_backend: str
     python: str
@@ -48,4 +50,3 @@ def save_state(path: Path, state: AppState) -> None:
         encoding="utf-8",
     )
     tmp.replace(path)
-

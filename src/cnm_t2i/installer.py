@@ -87,6 +87,7 @@ class InstallRequest:
     managed_python: bool
     hf_token: Optional[str]
     hf_endpoint: Optional[str]
+    proxy: Optional[str]
     env_only: bool
     download_only: bool
     force: bool
@@ -134,6 +135,19 @@ def install(req: InstallRequest) -> InstallResult:
 
     token = hfwrap.resolve_token(req.hf_token)
     endpoint = hfwrap.resolve_endpoint(req.hf_endpoint)
+    proxy = req.proxy
+    if proxy and "://" not in proxy:
+        proxy = "http://" + proxy
+
+    net_env = None
+    if proxy:
+        # Respect common proxy env var spellings for both uv and huggingface_hub.
+        net_env = {
+            "HTTP_PROXY": proxy,
+            "HTTPS_PROXY": proxy,
+            "http_proxy": proxy,
+            "https_proxy": proxy,
+        }
 
     # Environment setup
     if not req.download_only:
@@ -141,6 +155,7 @@ def install(req: InstallRequest) -> InstallResult:
             env_dir,
             python=req.python,
             managed_python=req.managed_python,
+            env=net_env,
             dry_run=req.dry_run,
         )
         py_exe = uvwrap.venv_python(env_dir)
@@ -148,6 +163,7 @@ def install(req: InstallRequest) -> InstallResult:
             py_exe,
             runtime.requirements,
             torch_backend=req.torch_backend,
+            env=net_env,
             dry_run=req.dry_run,
         )
         if req.dry_run:
@@ -175,6 +191,7 @@ def install(req: InstallRequest) -> InstallResult:
                 model.hf_repo,
                 token=token,
                 endpoint=endpoint,
+                extra_env=net_env,
                 dry_run=req.dry_run,
             )
             if not access.ok:
@@ -203,6 +220,7 @@ def install(req: InstallRequest) -> InstallResult:
                 revision=req.revision,
                 token=token,
                 endpoint=endpoint,
+                extra_env=net_env,
                 dry_run=req.dry_run,
             )
             if not req.dry_run:
@@ -232,6 +250,8 @@ def install(req: InstallRequest) -> InstallResult:
             family=model.family,
             hf_repo=model.hf_repo,
             revision=req.revision,
+            hf_endpoint=endpoint,
+            proxy=proxy,
             runtime=runtime.key,
             torch_backend=req.torch_backend,
             python=req.python,

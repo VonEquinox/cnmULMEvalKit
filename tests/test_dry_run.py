@@ -21,6 +21,7 @@ def test_install_dry_run_has_no_filesystem_side_effects(tmp_path: Path) -> None:
         managed_python=False,
         hf_token=None,
         hf_endpoint=None,
+        proxy=None,
         env_only=False,
         download_only=False,
         force=False,
@@ -31,4 +32,3 @@ def test_install_dry_run_has_no_filesystem_side_effects(tmp_path: Path) -> None:
     # dry-run should not create the home directory nor write config.
     assert not home.exists()
     assert not (home / "config.json").exists()
-
