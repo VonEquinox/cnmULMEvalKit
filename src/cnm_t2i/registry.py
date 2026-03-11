@@ -31,7 +31,8 @@ RUNTIMES: Dict[str, RuntimeSpec] = {
         requirements=[
             "torch",
             "diffusers>=0.37.0",
-            "transformers>=4.38.0",
+            # Qwen-Image uses Qwen2.5-VL as a text encoder, which requires Transformers >= 4.49.
+            "transformers>=4.49.0",
             "accelerate",
             "safetensors",
             "pillow",
@@ -48,10 +49,12 @@ RUNTIMES: Dict[str, RuntimeSpec] = {
             "torch",
             "torchvision",
             "diffusers>=0.37.0",
-            "transformers>=4.38.0",
+            "transformers>=4.38.2",
             "accelerate",
             "sentencepiece",
             "protobuf",
+            "pillow",
+            "numpy",
             "timm>=0.9.16",
             "attrdict",
             "einops",
@@ -162,4 +165,3 @@ def slugify_repo_id(repo_id: str) -> str:
     # Turn "org/name" into something safe as a directory name and state key.
     repo_id = repo_id.strip()
     return repo_id.replace("/", "__").replace(":", "_")
-

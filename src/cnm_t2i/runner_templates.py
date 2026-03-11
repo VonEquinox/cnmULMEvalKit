@@ -305,8 +305,7 @@ def run_janusflow(*, model_path: str, prompt: str, out: str, seed: int, device: 
     import torch
     import numpy as np
     from PIL import Image
-    from transformers import AutoModelForCausalLM
-    from janus.models import VLChatProcessor
+    from janus.janusflow.models import MultiModalityCausalLM, VLChatProcessor
     from diffusers.models import AutoencoderKL
 
     _seed_all(seed)
@@ -315,97 +314,97 @@ def run_janusflow(*, model_path: str, prompt: str, out: str, seed: int, device: 
     if device != "cuda":
         raise RuntimeError("JanusFlow generation requires CUDA.")
 
+    # JanusFlow uses an SDXL VAE that does not work reliably with fp16.
     if dtype == "fp16":
-        raise RuntimeError("JanusFlow does not support fp16 reliably; use bf16 or fp32.")
+        raise RuntimeError("JanusFlow does not support fp16; use bf16 or fp32.")
 
     torch_dtype = _pick_dtype(dtype, device)
+    if torch_dtype == torch.float16:
+        # Covers dtype=auto on GPUs without bf16 support.
+        raise RuntimeError("JanusFlow auto dtype selected fp16; please use --dtype bf16 or --dtype fp32.")
 
     vl_chat_processor = VLChatProcessor.from_pretrained(model_path)
     tokenizer = vl_chat_processor.tokenizer
 
-    vl_gpt = AutoModelForCausalLM.from_pretrained(
+    vl_gpt = MultiModalityCausalLM.from_pretrained(
         model_path, trust_remote_code=True
     ).to(torch_dtype).cuda().eval()
 
-    # VAE used by JanusFlow demo (downloaded on-demand by diffusers if not present).
-    vae = AutoencoderKL.from_pretrained("stabilityai/sdxl-vae", torch_dtype=torch_dtype).cuda().eval()
+    # VAE used by the official JanusFlow demo (downloaded via HF if not cached).
+    vae = AutoencoderKL.from_pretrained("stabilityai/sdxl-vae")
+    vae = vae.to(torch_dtype).cuda().eval()
 
-    user_role = "User"
-    assistant_role = "Assistant"
-
-    conversation = [
-        {"role": user_role, "content": prompt},
-        {"role": assistant_role, "content": ""},
+    messages = [
+        {"role": "User", "content": prompt},
+        {"role": "Assistant", "content": ""},
     ]
     sft = vl_chat_processor.apply_sft_template_for_multi_turn_prompts(
-        conversations=conversation,
-        sft_format="chatml",
+        conversations=messages,
+        sft_format=getattr(vl_chat_processor, "sft_format", "chatml"),
         system_prompt="",
     )
-    image_tag = getattr(vl_chat_processor, "image_gen_tag", None) or vl_chat_processor.image_start_tag
+    image_tag = getattr(vl_chat_processor, "image_gen_tag", None) or getattr(
+        vl_chat_processor, "image_start_tag"
+    )
+    if not image_tag:
+        raise RuntimeError("JanusFlow processor did not expose image_gen_tag/image_start_tag.")
     text = sft + image_tag
 
-    inputs = vl_chat_processor(text, images=None, force_batchify=True).to(vl_gpt.device)
-    input_ids = inputs["input_ids"]
-    pad_id = tokenizer.pad_token_id
+    input_ids = tokenizer.encode(text)
+    input_ids = torch.LongTensor(input_ids)
+
+    # One image output (CFG uses a conditional+unconditional pair).
+    batchsize = 1
+    tokens = torch.stack([input_ids] * (2 * batchsize)).cuda()
+    pad_id = getattr(vl_chat_processor, "pad_id", None)
+    if pad_id is None:
+        pad_id = tokenizer.pad_token_id
     if pad_id is None:
         pad_id = tokenizer.eos_token_id
+    tokens[batchsize:, 1:] = int(pad_id)
+    inputs_embeds = vl_gpt.language_model.get_input_embeddings()(tokens)
 
-    # One image output.
-    batchsize = 1
-    tokens = torch.stack([input_ids] * 2 * batchsize).cuda()
-    tokens[batchsize:, 1:] = pad_id
-    inputs_embeds = vl_gpt.get_input_embeddings()(tokens)
+    # Remove the last token (as in the upstream demo) to insert t_emb later.
+    inputs_embeds = inputs_embeds[:, :-1, :]
 
     z = torch.randn((batchsize, 4, 48, 48), dtype=torch_dtype).cuda()
-    dt = 1.0 / float(steps)
+    dt = torch.zeros_like(z).cuda().to(torch_dtype) + (1.0 / float(steps))
 
-    attention_mask = torch.ones((2 * batchsize, inputs_embeds.shape[1] + 577), dtype=torch.int64).cuda()
-    attention_mask[batchsize:, inputs_embeds.shape[1] :] = 0
+    attention_mask = torch.ones(
+        (2 * batchsize, inputs_embeds.shape[1] + 577), device=vl_gpt.device
+    )
+    attention_mask[batchsize:, 1:inputs_embeds.shape[1]] = 0
+    attention_mask = attention_mask.int()
 
-    past_key_values = None
-    i = 0
-    while i < steps:
-        i += 1
-        t = torch.full((batchsize,), 1.0 - dt * (i - 1), dtype=torch_dtype).cuda()
-        t = torch.stack([t] * 2 * batchsize)
-        t_emb = vl_gpt.gen_vision_model.vision_encoder(t.reshape(-1, 1))
-
-        z_input = torch.cat([z] * 2 * batchsize)
-        z_emb = vl_gpt.gen_vision_model.vision_encoder(z_input)
+    for step in range(int(steps)):
+        z_input = torch.cat([z, z], dim=0)  # for CFG
+        t = step / float(steps) * 1000.0
+        t = torch.tensor([t] * z_input.shape[0], device=z_input.device).to(dt)
+        z_enc = vl_gpt.vision_gen_enc_model(z_input, t)
+        z_emb, t_emb, hs = z_enc[0], z_enc[1], z_enc[2]
+        z_emb = z_emb.view(z_emb.shape[0], z_emb.shape[1], -1).permute(0, 2, 1)
+        z_emb = vl_gpt.vision_gen_enc_aligner(z_emb)
 
         llm_emb = torch.cat([inputs_embeds, t_emb.unsqueeze(1), z_emb], dim=1)
-
-        if i == 1:
-            outputs = vl_gpt.language_model.model(
-                inputs_embeds=llm_emb,
-                attention_mask=attention_mask,
-                use_cache=True,
-                past_key_values=None,
-            )
-            # Keep behavior aligned with upstream demo; do not rely on KV caching.
-            past_key_values = tuple()
-        else:
-            outputs = vl_gpt.language_model.model(
-                inputs_embeds=llm_emb[:, -577:, :],
-                attention_mask=attention_mask,
-                use_cache=True,
-                past_key_values=past_key_values,
-            )
-
+        outputs = vl_gpt.language_model.model(
+            inputs_embeds=llm_emb,
+            use_cache=False,
+            attention_mask=attention_mask,
+            past_key_values=None,
+        )
         hidden_states = outputs.last_hidden_state
-        hidden_states = vl_gpt.gen_vision_model.vision_head(hidden_states[:, -576:, :])
-        hidden_states = hidden_states.reshape(batchsize * 2, 24, 24, 768).permute(0, 3, 1, 2)
-
-        v = vl_gpt.gen_vision_model.vision_head(hidden_states)
+        hidden_states = vl_gpt.vision_gen_dec_aligner(
+            vl_gpt.vision_gen_dec_aligner_norm(hidden_states[:, -576:, :])
+        )
+        hidden_states = hidden_states.reshape(z_emb.shape[0], 24, 24, 768).permute(0, 3, 1, 2)
+        v = vl_gpt.vision_gen_dec_model(hidden_states, hs, t_emb)
         v_cond, v_uncond = torch.chunk(v, 2)
-        v = v_uncond + cfg_weight * (v_cond - v_uncond)
-
+        v = cfg_weight * v_cond - (cfg_weight - 1.0) * v_uncond
         z = z + dt * v
 
     decoded = vae.decode(z / vae.config.scaling_factor).sample
-    img = (decoded / 2 + 0.5).clamp(0, 1)
-    img = (img[0].detach().cpu().numpy().transpose(1, 2, 0) * 255).astype(np.uint8)
+    img = decoded[0].float().clamp(-1.0, 1.0) * 0.5 + 0.5
+    img = (img.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(img).save(out_path)

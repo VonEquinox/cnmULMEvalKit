@@ -18,6 +18,19 @@ uv venv
 uv pip install -e ".[dev]"
 ```
 
+注意：如果你没有 `source .venv/bin/activate`，那么 `cnm-t2i` 不会在当前 shell 的 `PATH` 里。
+你可以任选一种方式运行：
+
+```bash
+source .venv/bin/activate
+cnm-t2i list
+
+# 或者不激活 venv：
+.venv/bin/cnm-t2i list
+# 或者：
+uv run cnm-t2i list
+```
+
 ## Usage
 
 List built-in presets:
