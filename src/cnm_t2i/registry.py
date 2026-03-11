@@ -46,7 +46,9 @@ RUNTIMES: Dict[str, RuntimeSpec] = {
         key="janus",
         display_name="Janus (Janus/Janus-Pro/JanusFlow)",
         requirements=[
-            "torch",
+            # Janus-Pro weights are published as pytorch_model.bin (not safetensors).
+            # Recent Transformers versions require torch>=2.6 for safe torch.load().
+            "torch>=2.6.0",
             "torchvision",
             "diffusers>=0.37.0",
             # Janus SigLIP ViT calls Tensor.item() during __init__, which fails under meta-init.

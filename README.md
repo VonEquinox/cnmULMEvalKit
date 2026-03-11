@@ -52,6 +52,12 @@ cnm-t2i install --model sd15 --hf-endpoint https://hf-mirror.com
 # 或者：export HF_ENDPOINT=https://hf-mirror.com
 ```
 
+代理（可选，比如本机 `clash`）：
+
+```bash
+cnm-t2i install --model sd15 --proxy http://127.0.0.1:7897
+```
+
 Non-interactive install:
 
 ```bash
@@ -79,6 +85,14 @@ cnm-t2i infer --model sd15 --prompt "a cat" --cuda-visible-devices 1
 ```
 
 如果你遇到 `Tensor.item() cannot be called on meta tensors`（常见于 Janus/Janus-Pro + 新版 Transformers 的 meta 初始化路径），请更新到最新代码后重试；我们已在 runner 里强制禁用了 meta 初始化。
+
+如果你遇到 `CVE-2025-32434` / `upgrade torch to at least v2.6` 相关报错（Janus-Pro 目前是 `.bin` 权重，会走 `torch.load`），请重装 Janus env：
+
+```bash
+cnm-t2i install --model janus-pro-1b --env-only --torch-backend cu121
+```
+
+如果你的 `cu121` 后端找不到 `torch>=2.6`，把后端换成 `cu124` 或 `auto` 再试。
 
 ## Notes
 
