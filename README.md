@@ -76,6 +76,16 @@ Smoke inference (after install on server):
 cnm-t2i infer --model sd15 --prompt "a cat" --steps 5
 ```
 
+Janus-Pro 注意事项：
+
+- `deepseek-ai/Janus-Pro-*` 目前主分支是 `pytorch_model.bin`（会触发 Transformers 对 `torch.load` 的安全版本检查）。
+- 如果你不想升级到 `torch>=2.6`（或者你的 `--torch-backend cu121` 没有 `torch>=2.6` 轮子），可以用我们内置的 safetensors 变体：`janus-pro-1b-safe` / `janus-pro-7b-safe`。
+
+```bash
+cnm-t2i install --model janus-pro-1b-safe --torch-backend cu121
+cnm-t2i infer --model janus-pro-1b-safe --prompt "a cat" --cuda-visible-devices 1 --device cuda --dtype bf16
+```
+
 指定 GPU（可选）：
 
 ```bash

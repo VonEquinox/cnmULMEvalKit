@@ -46,15 +46,14 @@ RUNTIMES: Dict[str, RuntimeSpec] = {
         key="janus",
         display_name="Janus (Janus/Janus-Pro/JanusFlow)",
         requirements=[
-            # Janus-Pro weights are published as pytorch_model.bin (not safetensors).
-            # Recent Transformers versions require torch>=2.6 for safe torch.load().
-            "torch>=2.6.0",
+            "torch",
             "torchvision",
             "diffusers>=0.37.0",
             # Janus SigLIP ViT calls Tensor.item() during __init__, which fails under meta-init.
             # Transformers >= 4.53 instantiates models under init_empty_weights() by default.
             "transformers>=4.38.2,<4.53",
             "accelerate",
+            "safetensors",
             "sentencepiece",
             "protobuf",
             "pillow",
@@ -87,12 +86,28 @@ MODELS: Dict[str, ModelSpec] = {
         hf_repo="deepseek-ai/Janus-Pro-1B",
         runtime="janus",
     ),
+    "janus-pro-1b-safe": ModelSpec(
+        key="janus-pro-1b-safe",
+        display_name="Janus-Pro 1B (safetensors)",
+        family="janus-pro",
+        hf_repo="deepseek-community/Janus-Pro-1B",
+        runtime="janus",
+        notes="Uses a safetensors variant to avoid torch.load .bin restrictions.",
+    ),
     "janus-pro-7b": ModelSpec(
         key="janus-pro-7b",
         display_name="Janus-Pro 7B",
         family="janus-pro",
         hf_repo="deepseek-ai/Janus-Pro-7B",
         runtime="janus",
+    ),
+    "janus-pro-7b-safe": ModelSpec(
+        key="janus-pro-7b-safe",
+        display_name="Janus-Pro 7B (safetensors)",
+        family="janus-pro",
+        hf_repo="deepseek-community/Janus-Pro-7B",
+        runtime="janus",
+        notes="Uses a safetensors variant to avoid torch.load .bin restrictions.",
     ),
     "janusflow-1.3b": ModelSpec(
         key="janusflow-1.3b",
